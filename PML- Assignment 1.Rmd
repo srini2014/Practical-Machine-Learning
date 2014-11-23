@@ -1,0 +1,137 @@
+---
+title: "PML assignment"
+output: html_document
+---
+
+##Abstract
+In this project data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants is taken,they were asked to perform barbell lifts correctly and incorrectly in 5 different ways.The goal of the project is to predict the manner in which they did the exercise.First the Training dataset is cleaned removing missing and unwanted information and partitioned into training and test sets. Then random forest method of prediction is used to build the model and applied to test set. THe accuracy of 0.995 indicates the effeciency of the model which is then applied to the test set.
+
+## Data Processing
+
+
+
+
+Ignore the warnings
+
+```{r}
+
+  options(warn=-1);
+
+```
+
+#### Step 1: Download and read training file 
+```{r}
+
+trainingFile = "pml-training.csv"
+if (!file.exists(trainingFile)) {
+
+     download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = trainingFile, method ="internal")
+}
+if (!exists("training1")) {
+
+
+    training1 <- read.csv(trainingFile, stringsAsFactors = F)
+}
+#ncol(training1)
+#nrow(training1)
+#summary(training1)
+```
+###### There are 160 columns and 19,622 rows. Looking at the data it has a lot of unfilled data and also it has a lot of error data. Need to clean the data. 
+####Step 2 :Data Cleaning
+######Some of the data has been imported as factor because of presence of some characters (#DIV/0!)values. To manage this issue importing the data ignoring the values
+```{r}
+training2 <- read.csv(trainingFile, na.strings = c("#DIV/0!"))
+#ncol(training2)
+#nrow(training2)
+
+```
+###### Convert the factor values to numeric values excluding the predictor and first 7 columns
+```{r}
+cTraining2 <- training2
+for(i in c(8:ncol(cTraining2)-1)){cTraining2[,i] = as.numeric(as.character(cTraining2[,i]))}
+```
+###### Some of the columns have really low completion rates. To manage this issue we select only the columns with a 100% completion rate. We will also filter some features which are not very useful like "time stamp", "num_windows", "new_windows", "user_name"
+
+```{r}
+featuresnames <- colnames(cTraining2[colSums(is.na(cTraining2)) == 0])[-(1:7)]
+features <- cTraining2[featuresnames]
+
+```
+###### Step # 3: After this the dataframe will contain all the workable features. We will split the dataset to training(75%) and testing(25%) datasets
+```{r}
+library(caret)
+XTraining <- createDataPartition(y= features$classe, p=3/4, list = FALSE)
+training <- features[XTraining,]
+testing <- features[-XTraining,]
+
+```
+###### Step 4: We can now train the training data. Use the randomForest to train and model. A forest with 150 trees
+
+```{r}
+library(randomForest)
+model <-  randomForest(training[-ncol(training)],training$classe, ntree= 150)
+```
+#### Step 5 : To evaluate the model, we will use the confusion matrix method.
+```{r}
+predictTr <- predict(model, newdata = training)
+confusionMatrix(predictTr, training$classe)
+```
+#### Step 6: Applying the model to the testing data obtained by partition
+```{r}
+predictTe <- predict(model, newdata = testing)
+confusionMatrix(predictTe,testing$classe)
+
+```
+####From the results of confusion matrix above, the model is good and effecient as the accuracy is 0.9955. The out of sample error 1- accuracy for predictions made against the cross validation set , would be about 0.0045. Sensitivity , specificity values are are very good (Lowest sensitivity value is 0.9900 for class d and lowest specificity values is 0.9973 for class D )
+
+#### Using the model to classify the 20 sample cases
+###### Download and read the testing dataset
+
+```{r}
+testingFile = "pml-testing.csv"
+
+if (!file.exists(testingFile)) {
+
+     download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = testingFile, method ="internal")
+}
+if (!exists("testing1")) {
+
+
+    testing1 <- read.csv(testingFile, stringsAsFactors = F)
+}
+```
+######To apply the model to testing data, we need to process it same as training data
+
+```{r}
+testing2 <- read.csv(testingFile, na.strings = c("#DIV/0!"))
+#cTesting2 <- testing2
+#for(i in c(8:ncol(cTesting2)-1)){cTesting2[,i] = as.numeric(as.character(cTesting2[,i]))}
+cTesting2 <- testing2
+for(i in c(8:ncol(cTraining2)-1)){cTraining2[,i] = as.numeric(as.character(cTraining2[,i]))}
+
+featuresnames <- colnames(cTesting2[colSums(is.na(cTesting2)) == 0])[-(1:7)]
+features <- cTesting2[featuresnames]
+predictTesting <- predict(model, newdata = features)
+confusionMatrix(predictTr, training$classe)
+
+answers <- as.vector(predictTesting)
+
+```
+###### writing the files
+```{r}
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+  }
+pml_write_files(answers)
+
+```
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
